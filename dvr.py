@@ -1,9 +1,9 @@
 import threading
-from collections import deque
 # import dictionary for routersGraph
 from collections import defaultdict
 import sys
 import time
+import math
 from threading import Thread, Lock
 
 mutex = Lock()
@@ -16,7 +16,7 @@ no_of_routers = 0
 
 no_of_iterations = 4
 
-positive_infnity = float('inf')
+positive_infnity = math.inf#float('inf')
 
 Queue = {}
 
@@ -101,19 +101,25 @@ class Router(threading.Thread):
         self.RId = RID
         self.RName = Rname
         self.RoutingTable = RoutingTable()
+        self.neighbors = routersGraph[Rname]
+
         for dst in RtrNameList:
             if dst==self.RName:
                 self.RoutingTable.add(dst,0)            #adding dest and cost
+            elif dst in self.neighbors.keys():
+                self.RoutingTable.add(dst,self.neighbors[dst])
             else:
                 self.RoutingTable.add(dst,positive_infnity)
-        self.neighbors = routersGraph[Rname]
+        
         self.neighborRoutingTables = []
+        self.printRoutingTable()
         #storing the version of router before updating
         global routerVersions
-        routerVersions[self.RName] = self.RoutingTable
+        routerVersions[self.RName] = self.RoutingTable.copy()
 
     def printRoutingTable(self):
-        print(self.RoutingTable)
+        print("{}                   {}                      {}                   {}".format(0, self.RId, self.RName, self.RoutingTable))
+        print('-------------------------------------------------------------------------------------------------------')
 
     def updateRoutingTable(self, dst, cost):
         self.RoutingTable[dst] = cost
@@ -150,45 +156,45 @@ class Router(threading.Thread):
         while status:
             if len(Queue) == no_of_routers:
                 status = False
+                
         for iteration in range(no_of_iterations):
 
             #start taking neighbor routers routing tables and updating current router's Routing Table
             self.Receiving()
 
+            #wait for 2 seconds and then send the updated RT
+            time.sleep(2)
+
             global routerVersions
             global currrouter
+
             mutex.acquire()
             currrouter = currrouter + 1
             mutex.release()
             status = True
             #wait until all routers are done
-            '''while status:
+            while status:
                 if currrouter == (iteration+1) * no_of_routers:
-                    status = False'''
+                    status = False
             #if all are done then all routers will send their updated RT to the queue one by one
-
-            #wait for 2 seconds and then send the updated RT
-            time.sleep(2)
-
+            
             self.Sending()
 
-            #as accessing routerVersions acwuire lock
+            #as accessing routerVersions acquire lock
             mutex.acquire()
-            #Queue[self.RName] = self.RoutingTable.copy()
-            last = routerVersions[self.RName]
+            lastVersion = routerVersions[self.RName]
             #matching if version before updating is equal to current version
             modified = "*"
-            if last == self.RoutingTable:
+            if lastVersion == self.RoutingTable:
                 modified = ""
+            
             routerVersions[self.RName] = self.RoutingTable.copy()
             print("{}                   {}                      {}                   {} {}".format(iteration+1, self.RId, self.RName, self.RoutingTable, modified))
             mutex.release()
             print('-------------------------------------------------------------------------------------------------------')
-            #time.sleep(2)
 
 
-routersGraph = {}
-print("Enter the file name of input: ", end="")
+print("Enter the name of the input file: ", end="")
 f_name = input()
 file = open(f_name, "r")
 lines = file.readlines()
@@ -215,4 +221,12 @@ for router in routers:
     router.join()
 
 
-
+'''
+   A
+2 / \ 3
+ /   \
+B     C
+ \   /
+4 \ / 5
+   D
+'''
